@@ -7,10 +7,12 @@ import type { SearchResultItem } from '@/lib/types';
 import L from 'leaflet';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Flame, X, Building, CalendarDays } from 'lucide-react';
+import { Flame, X } from 'lucide-react';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
-import 'react-leaflet-cluster/lib/styles.scss';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+
 
 const createIcon = (type: 'event' | 'business') => {
     const iconHtml = `<div class="p-1 rounded-full flex items-center justify-center" style="background-color: hsl(var(--primary)); color: hsl(var(--primary-foreground));">
