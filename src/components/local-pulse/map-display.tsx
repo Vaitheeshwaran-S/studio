@@ -30,8 +30,8 @@ const MarkerIcon = ({ type, isHovered }: { type: 'event' | 'business', isHovered
   const Icon = type === 'event' ? CalendarDays : Building;
   return (
     <div className={`transition-all duration-200 ${isHovered ? 'scale-125' : 'scale-100'}`}>
-       <Pin background={isHovered ? 'hsl(var(--accent))' : 'hsl(var(--primary))'} 
-            borderColor={'hsl(var(--primary-foreground))'} 
+       <Pin background={isHovered ? 'hsl(var(--accent))' : 'hsl(var(--primary))'}
+            borderColor={'hsl(var(--primary-foreground))'}
             glyphColor={'hsl(var(--primary-foreground))'}
         >
         <Icon className="w-6 h-6" />
@@ -43,7 +43,7 @@ const MarkerIcon = ({ type, isHovered }: { type: 'event' | 'business', isHovered
 
 export default function MapDisplay({ results, hoveredItemId, setHoveredItemId }: MapDisplayProps) {
   const [markers, setMarkers] = useState<({ id: string; type: 'event' | 'business', name: string } & { lat: number; lng: number })[]>([]);
-  
+
   useEffect(() => {
     const processResults = async () => {
       const newMarkers = await Promise.all(
@@ -58,7 +58,7 @@ export default function MapDisplay({ results, hoveredItemId, setHoveredItemId }:
   }, [results]);
 
   const mapCenter = markers.length > 0 ? markers[0] : { lat: 34.052235, lng: -118.243683 };
-  
+
   return (
     <Map
       defaultCenter={mapCenter}
@@ -73,11 +73,15 @@ export default function MapDisplay({ results, hoveredItemId, setHoveredItemId }:
         <AdvancedMarker
           key={marker.id}
           position={marker}
-          onPointerEnter={() => setHoveredItemId(marker.id)}
-          onPointerLeave={() => setHoveredItemId(null)}
-        >
-          <MarkerIcon type={marker.type} isHovered={hoveredItemId === marker.id} />
-        </AdvancedMarker>
+          content={
+            <div
+              onMouseEnter={() => setHoveredItemId(marker.id)}
+              onMouseLeave={() => setHoveredItemId(null)}
+            >
+              <MarkerIcon type={marker.type} isHovered={hoveredItemId === marker.id} />
+            </div>
+          }
+        />
       ))}
        {results.length === 0 && (
          <div className="absolute inset-0 flex items-center justify-center bg-background/80">
