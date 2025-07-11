@@ -2,37 +2,28 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, useMap, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, useMap, Popup } from 'react-leaflet';
 import type { SearchResultItem } from '@/lib/types';
 import L from 'leaflet';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Flame, X } from 'lucide-react';
-import MarkerClusterGroup from 'react-leaflet-cluster';
+import { Flame, X, Building, CalendarDays } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 
+// Using a dynamic import for MarkerClusterGroup to avoid SSR issues
+const MarkerClusterGroup = React.lazy(() => import('react-leaflet-cluster'));
 
-const createIcon = (type: 'event' | 'business') => {
-    const iconHtml = `<div class="p-1 rounded-full flex items-center justify-center" style="background-color: hsl(var(--primary)); color: hsl(var(--primary-foreground));">
-      ${type === 'event' ? 
-        '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days w-5 h-5"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>' : 
-        '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-building w-5 h-5"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>'
-      }
-    </div>`;
-  
-    return L.divIcon({
-      html: iconHtml,
-      className: 'bg-transparent border-0',
-      iconSize: [32, 32],
-      iconAnchor: [16, 32],
-      popupAnchor: [0, -32]
-    });
+const MarkerIcon = ({ type, isHovered }: { type: 'event' | 'business', isHovered: boolean }) => {
+  const Icon = type === 'event' ? CalendarDays : Building;
+  return (
+    <div className={`p-2 rounded-full flex items-center justify-center transition-all duration-200 ${isHovered ? 'bg-accent' : 'bg-primary'} text-primary-foreground shadow-lg`}>
+      <Icon className="w-5 h-5" />
+    </div>
+  );
 };
 
-const eventIcon = createIcon('event');
-const businessIcon = createIcon('business');
 
 interface MapDisplayProps {
   results: SearchResultItem[];
@@ -70,7 +61,15 @@ const MapUpdater = ({ center, zoom }: { center: [number, number], zoom: number }
   return null;
 };
 
-const MapMarkers = ({ results, setHoveredItemId }: { results: SearchResultItem[], setHoveredItemId: (id: string | null) => void }) => {
+const createClusterIcon = (cluster: any) => {
+    return L.divIcon({
+        html: `<div class="p-2 rounded-full flex items-center justify-center bg-primary text-primary-foreground font-bold text-sm" style="width: 40px; height: 40px;">${cluster.getChildCount()}</div>`,
+        className: 'bg-transparent border-0',
+        iconSize: [40, 40]
+    });
+};
+
+const MapMarkers = ({ results, hoveredItemId, setHoveredItemId }: { results: SearchResultItem[], hoveredItemId: string | null, setHoveredItemId: (id: string | null) => void }) => {
     const [markers, setMarkers] = useState<MarkerData[]>([]);
 
     useEffect(() => {
@@ -89,28 +88,45 @@ const MapMarkers = ({ results, setHoveredItemId }: { results: SearchResultItem[]
             setMarkers([]);
         }
     }, [results]);
+    
+    // Custom icon for individual markers
+    const createMarkerIcon = (type: 'event' | 'business', isHovered: boolean) => {
+        const iconComponent = type === 'event' ? `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days w-5 h-5"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>` : `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-building w-5 h-5"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>`;
+        const bgColor = isHovered ? 'hsl(var(--accent))' : 'hsl(var(--primary))';
+        const iconHtml = `<div class="p-2 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg" style="background-color: ${bgColor}; color: hsl(var(--primary-foreground));">${iconComponent}</div>`;
+
+        return L.divIcon({
+            html: iconHtml,
+            className: 'bg-transparent border-0',
+            iconSize: L.point(40, 40),
+            iconAnchor: L.point(20, 40),
+            popupAnchor: L.point(0, -40)
+        });
+    }
 
     if(markers.length === 0) return null;
 
     return (
-        <MarkerClusterGroup chunkedLoading>
-            {markers.map((marker) => (
-                <Marker
-                    key={marker.id}
-                    position={[marker.lat, marker.lng]}
-                    icon={marker.type === 'event' ? eventIcon : businessIcon}
-                    eventHandlers={{
-                        mouseover: () => setHoveredItemId(marker.id),
-                        mouseout: () => setHoveredItemId(null),
-                    }}
-                >
-                    <Popup>
-                        <div className="font-bold">{marker.name}</div>
-                        <div>{marker.type === 'event' ? 'Event' : 'Business'}</div>
-                    </Popup>
-                </Marker>
-            ))}
-        </MarkerClusterGroup>
+        <React.Suspense fallback={null}>
+            <MarkerClusterGroup iconCreateFunction={createClusterIcon}>
+                {markers.map((marker) => (
+                    <L.Marker
+                        key={marker.id}
+                        position={[marker.lat, marker.lng]}
+                        icon={createMarkerIcon(marker.type, hoveredItemId === marker.id)}
+                        eventHandlers={{
+                            mouseover: () => setHoveredItemId(marker.id),
+                            mouseout: () => setHoveredItemId(null),
+                        }}
+                    >
+                        <Popup>
+                            <div className="font-bold">{marker.name}</div>
+                            <div className="text-sm capitalize">{marker.type}</div>
+                        </Popup>
+                    </L.Marker>
+                ))}
+            </MarkerClusterGroup>
+        </React.Suspense>
     );
 };
 
@@ -129,6 +145,7 @@ export default function MapDisplay({ results, hoveredItemId, setHoveredItemId, s
   return (
     <div className="relative w-full h-full">
         <MapContainer 
+            key={`${mapCenter.join('-')}-${mapZoom}`} // Add key to force re-render on center change if needed
             center={mapCenter} 
             zoom={mapZoom} 
             className="w-full h-full z-0"
@@ -140,15 +157,15 @@ export default function MapDisplay({ results, hoveredItemId, setHoveredItemId, s
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             <MapUpdater center={mapCenter} zoom={mapZoom} />
-            <MapMarkers results={results} setHoveredItemId={setHoveredItemId} />
+            <MapMarkers results={results} hoveredItemId={hoveredItemId} setHoveredItemId={setHoveredItemId} />
         </MapContainer>
         {showWelcome && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
-            <Card className="max-w-sm text-center relative">
+            <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10 p-4">
+            <Card className="max-w-sm text-center relative shadow-2xl">
                 <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="absolute top-2 right-2 h-6 w-6"
+                    className="absolute top-2 right-2 h-6 w-6 z-20"
                     onClick={() => setShowWelcome(false)}
                 >
                     <X className="h-4 w-4" />
