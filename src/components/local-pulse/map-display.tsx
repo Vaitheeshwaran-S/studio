@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
+import { Map, AdvancedMarker } from '@vis.gl/react-google-maps';
 import type { SearchResultItem } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ interface MapDisplayProps {
   userLocation: { lat: number; lng: number } | null;
 }
 
+// A simple (and not very unique) hashing function to create positions from location names
 const geocodeLocation = (locationName: string): Promise<{ lat: number; lng: number }> => {
   return new Promise(resolve => {
     let hash = 0;
@@ -36,29 +37,38 @@ type MarkerData = { id: string; type: 'event' | 'business'; name: string; lat: n
 const MarkerIcon = ({ type, isHovered }: { type: 'event' | 'business'; isHovered: boolean }) => {
   const Icon = type === 'event' ? CalendarDays : Building;
   const bgColor = isHovered ? 'hsl(var(--accent))' : 'hsl(var(--primary))';
+  const color = isHovered ? 'hsl(var(--accent-foreground))' : 'hsl(var(--primary-foreground))';
 
   return (
     <div
       className="p-2 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg"
-      style={{ backgroundColor: bgColor, color: 'hsl(var(--primary-foreground))' }}
+      style={{ backgroundColor: bgColor, color: color }}
+      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'hsl(var(--accent))')}
+      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = bgColor)}
     >
       <Icon className="w-5 h-5" />
     </div>
   );
 };
 
+
 export default function MapDisplay({ results, hoveredItemId, setHoveredItemId, showWelcome, setShowWelcome, userLocation }: MapDisplayProps) {
   const [markers, setMarkers] = useState<MarkerData[]>([]);
 
   const mapCenter = useMemo(() => {
+    if (markers.length > 0) {
+        const avgLat = markers.reduce((sum, m) => sum + m.lat, 0) / markers.length;
+        const avgLng = markers.reduce((sum, m) => sum + m.lng, 0) / markers.length;
+        return { lat: avgLat, lng: avgLng };
+    }
     if (userLocation) {
       return { lat: userLocation.lat, lng: userLocation.lng };
     }
     return { lat: 34.052235, lng: -118.243683 };
-  }, [userLocation]);
+  }, [userLocation, markers]);
 
   const mapZoom = useMemo(() => {
-    return userLocation || results.length > 0 ? 13 : 11;
+    return userLocation || results.length > 0 ? 12 : 10;
   }, [userLocation, results]);
 
   useEffect(() => {
@@ -80,27 +90,28 @@ export default function MapDisplay({ results, hoveredItemId, setHoveredItemId, s
 
   return (
     <div className="relative w-full h-full">
-      <Map
-        mapId={'local-pulse-map'}
-        style={{ width: '100%', height: '100%' }}
-        defaultCenter={mapCenter}
-        defaultZoom={mapZoom}
-        center={mapCenter}
-        zoom={mapZoom}
-        gestureHandling={'greedy'}
-        disableDefaultUI={true}
-      >
-        {markers.map(marker => (
-          <AdvancedMarker
-            key={marker.id}
-            position={marker}
-            title={marker.name}
-            onMouseEnter={() => setHoveredItemId(marker.id)}
-            onMouseLeave={() => setHoveredItemId(null)}
-          >
-             <MarkerIcon type={marker.type} isHovered={hoveredItemId === marker.id} />
-          </AdvancedMarker>
-        ))}
+        <Map
+            mapId={'local-pulse-map'}
+            style={{ width: '100%', height: '100%' }}
+            center={mapCenter}
+            zoom={mapZoom}
+            gestureHandling={'greedy'}
+            disableDefaultUI={true}
+        >
+            {markers.map(marker => (
+                <AdvancedMarker
+                    key={marker.id}
+                    position={marker}
+                    title={marker.name}
+                >
+                    <div
+                        onMouseEnter={() => setHoveredItemId(marker.id)}
+                        onMouseLeave={() => setHoveredItemId(null)}
+                    >
+                        <MarkerIcon type={marker.type} isHovered={hoveredItemId === marker.id} />
+                    </div>
+                </AdvancedMarker>
+            ))}
       </Map>
       {showWelcome && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10 p-4">
