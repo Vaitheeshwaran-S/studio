@@ -36,18 +36,21 @@ export async function smartSearch(input: SmartSearchInput): Promise<SmartSearchO
 
 const prompt = ai.definePrompt({
   name: 'smartSearchPrompt',
-  input: {schema: SmartSearchInputSchema},
-  output: {schema: SmartSearchOutputSchema},
+  input: { schema: SmartSearchInputSchema },
+  output: { schema: SmartSearchOutputSchema },
   prompt: `You are a search assistant helping users find local events and businesses.
 
-  Based on the user's keywords and location, find relevant events and businesses.
-  Return a list of results, including the type (event or business), name, description, and a general location name (not a full address).
-  Prioritize results that are near the user's location if provided.
+      Based on the user's keywords and location, find relevant events and businesses.
+      Return a list of results, including the type (event or business), name, description, and a general location name (not a full address).
+      Prioritize results that are near the user's location if provided.
 
-  Keywords: {{{keywords}}}
-  {{#if userLocation}}User's Location (lat,lon): {{{userLocation}}}{{/if}}
-  `,
+      Keywords: {{{keywords}}}
+      {{#if userLocation}}
+      User's Location (lat,lon): {{{userLocation}}}
+      {{/if}}
+      `,
 });
+
 
 const smartSearchFlow = ai.defineFlow(
   {
@@ -55,9 +58,8 @@ const smartSearchFlow = ai.defineFlow(
     inputSchema: SmartSearchInputSchema,
     outputSchema: SmartSearchOutputSchema,
   },
-  async input => {
-    // In a real app, you would have a tool here to query a database or external API.
+  async (input) => {
     const { output } = await prompt(input);
-    return output!;
+    return output || { results: [] };
   }
 );
