@@ -2,14 +2,13 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import type { SearchResultItem } from '@/lib/types';
 import L from 'leaflet';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Flame, X, Building, CalendarDays } from 'lucide-react';
 
-// Import MarkerCluster script
 import 'leaflet.markercluster';
 
 interface MapDisplayProps {
@@ -37,19 +36,10 @@ const geocodeLocation = (locationName: string): Promise<{ lat: number; lng: numb
 
 type MarkerData = { id: string; type: 'event' | 'business'; name: string; lat: number; lng: number };
 
-const MapUpdater = ({ center, zoom }: { center: [number, number], zoom: number }) => {
-  const map = useMap();
-  useEffect(() => {
-    if (center) {
-      map.setView(center, zoom);
-    }
-  }, [center, zoom, map]);
-  return null;
-};
-
-// Custom icon for individual markers
 const createMarkerIcon = (type: 'event' | 'business', isHovered: boolean) => {
-    const iconComponent = type === 'event' ? `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days w-5 h-5"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>` : `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-building w-5 h-5"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>`;
+    const iconComponent = type === 'event' 
+        ? `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days w-5 h-5"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>` 
+        : `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-building w-5 h-5"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>`;
     const bgColor = isHovered ? 'hsl(var(--accent))' : 'hsl(var(--primary))';
     const iconHtml = `<div class="p-2 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg" style="background-color: ${bgColor}; color: hsl(var(--primary-foreground));">${iconComponent}</div>`;
 
@@ -62,19 +52,17 @@ const createMarkerIcon = (type: 'event' | 'business', isHovered: boolean) => {
     });
 }
 
+const MapUpdater = ({ center, zoom }: { center: [number, number], zoom: number }) => {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [center, zoom, map]);
+  return null;
+};
 
 const MapMarkers = ({ results, hoveredItemId, setHoveredItemId }: { results: SearchResultItem[], hoveredItemId: string | null, setHoveredItemId: (id: string | null) => void }) => {
     const [markers, setMarkers] = useState<MarkerData[]>([]);
     const map = useMap();
-    const markerClusterGroup = useMemo(() => L.markerClusterGroup({
-        iconCreateFunction: (cluster: any) => {
-            return L.divIcon({
-                html: `<div class="p-2 rounded-full flex items-center justify-center bg-primary text-primary-foreground font-bold text-sm" style="width: 40px; height: 40px;">${cluster.getChildCount()}</div>`,
-                className: 'bg-transparent border-0',
-                iconSize: [40, 40]
-            });
-        }
-    }), []);
     
     useEffect(() => {
         const processResults = async () => {
@@ -94,7 +82,16 @@ const MapMarkers = ({ results, hoveredItemId, setHoveredItemId }: { results: Sea
     }, [results]);
 
     useEffect(() => {
-        markerClusterGroup.clearLayers();
+        const markerClusterGroup = L.markerClusterGroup({
+            iconCreateFunction: (cluster: any) => {
+                return L.divIcon({
+                    html: `<div class="p-2 rounded-full flex items-center justify-center bg-primary text-primary-foreground font-bold text-sm" style="width: 40px; height: 40px;">${cluster.getChildCount()}</div>`,
+                    className: 'bg-transparent border-0',
+                    iconSize: [40, 40]
+                });
+            }
+        });
+
         if (markers.length > 0) {
             markers.forEach(markerInfo => {
                 const marker = L.marker([markerInfo.lat, markerInfo.lng], {
@@ -109,11 +106,13 @@ const MapMarkers = ({ results, hoveredItemId, setHoveredItemId }: { results: Sea
         }
 
         return () => {
-             if (map.hasLayer(markerClusterGroup)) {
-                map.removeLayer(markerClusterGroup);
-            }
+            map.eachLayer((layer) => {
+                if (layer instanceof L.Marker || layer instanceof L.MarkerClusterGroup) {
+                    map.removeLayer(layer);
+                }
+            });
         };
-    }, [markers, hoveredItemId, map, markerClusterGroup, setHoveredItemId]);
+    }, [markers, hoveredItemId, map, setHoveredItemId]);
 
     return null;
 };
@@ -133,7 +132,6 @@ export default function MapDisplay({ results, hoveredItemId, setHoveredItemId, s
   return (
     <div className="relative w-full h-full">
         <MapContainer 
-            key={`${mapCenter.join('-')}-${mapZoom}`} // Add key to force re-render on center change if needed
             center={mapCenter} 
             zoom={mapZoom} 
             className="w-full h-full z-0"
