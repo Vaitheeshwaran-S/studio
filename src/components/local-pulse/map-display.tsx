@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -6,7 +7,7 @@ import type { SearchResultItem } from '@/lib/types';
 import L from 'leaflet';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Flame, Building, CalendarDays, X } from 'lucide-react';
+import { Flame, X } from 'lucide-react';
 
 // Marker icon creation logic
 const createIcon = (type: 'event' | 'business', isHovered: boolean) => {
@@ -31,32 +32,40 @@ interface MapDisplayProps {
   setHoveredItemId: (id: string | null) => void;
   showWelcome: boolean;
   setShowWelcome: (show: boolean) => void;
+  userLocation: { lat: number; lng: number } | null;
 }
 
 // Simple geocoding simulation
 const geocodeLocation = (locationName: string): Promise<{ lat: number; lng: number }> => {
   return new Promise(resolve => {
+    // A simple hash function to generate deterministic coordinates from a location string
     let hash = 0;
     for (let i = 0; i < locationName.length; i++) {
       hash = locationName.charCodeAt(i) + ((hash << 5) - hash);
     }
-    const lat = 34.0522 + (hash % 1000) / 20000; // Base: Los Angeles
-    const lng = -118.2437 + (hash % 2000) / 40000;
+    // Base coordinates (e.g., a central point in a city)
+    const baseLat = 34.0522; // Los Angeles
+    const baseLng = -118.2437;
+    // Add small, deterministic offsets based on the hash
+    const lat = baseLat + (hash % 1000) / 20000;
+    const lng = baseLng + (hash % 2000) / 40000;
     resolve({ lat, lng });
   });
 };
 
 type MarkerData = { id: string; type: 'event' | 'business'; name: string; lat: number; lng: number };
 
-const MapUpdater = ({ center }: { center: [number, number] }) => {
+const MapUpdater = ({ center, zoom }: { center: [number, number], zoom: number }) => {
   const map = useMap();
   useEffect(() => {
-    map.setView(center, map.getZoom());
-  }, [center, map]);
+    if (center) {
+      map.setView(center, zoom);
+    }
+  }, [center, zoom, map]);
   return null;
 };
 
-export default function MapDisplay({ results, hoveredItemId, setHoveredItemId, showWelcome, setShowWelcome }: MapDisplayProps) {
+export default function MapDisplay({ results, hoveredItemId, setHoveredItemId, showWelcome, setShowWelcome, userLocation }: MapDisplayProps) {
   const [markers, setMarkers] = useState<MarkerData[]>([]);
 
   useEffect(() => {
@@ -69,14 +78,25 @@ export default function MapDisplay({ results, hoveredItemId, setHoveredItemId, s
       );
       setMarkers(newMarkers);
     };
-    processResults();
+    if (results.length > 0) {
+      processResults();
+    }
   }, [results]);
 
-  const mapCenter: [number, number] = useMemo(() => 
-    markers.length > 0 ? [markers[0].lat, markers[0].lng] : [34.052235, -118.243683],
-    [markers]
-  );
-  
+  const mapCenter: [number, number] = useMemo(() => {
+    if (markers.length > 0) {
+      return [markers[0].lat, markers[0].lng];
+    }
+    if (userLocation) {
+      return [userLocation.lat, userLocation.lng];
+    }
+    return [34.052235, -118.243683]; // Default center (Los Angeles)
+  }, [markers, userLocation]);
+
+  const mapZoom = useMemo(() => {
+    return userLocation || markers.length > 0 ? 13 : 11;
+  }, [userLocation, markers]);
+
   // Create icons memoized to avoid re-creation on every render
   const markerIcons = useMemo(() => {
     const icons: { [key: string]: L.DivIcon } = {};
@@ -94,7 +114,7 @@ export default function MapDisplay({ results, hoveredItemId, setHoveredItemId, s
     <>
       <MapContainer 
         center={mapCenter} 
-        zoom={11} 
+        zoom={mapZoom} 
         className="w-full h-full z-0"
         scrollWheelZoom={true}
       >
@@ -102,7 +122,7 @@ export default function MapDisplay({ results, hoveredItemId, setHoveredItemId, s
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <MapUpdater center={mapCenter} />
+        <MapUpdater center={mapCenter} zoom={mapZoom} />
         {markers.map((marker) => (
           <Marker
             key={marker.id}
@@ -131,7 +151,7 @@ export default function MapDisplay({ results, hoveredItemId, setHoveredItemId, s
                    <Flame className="mx-auto h-12 w-12 text-primary" />
                    <h3 className="mt-4 text-lg font-medium">Welcome to LocalPulse</h3>
                    <p className="mt-2 text-sm text-muted-foreground">
-                       Use the search bar to find exciting events and businesses. The map will come alive with your results!
+                       Allow location access to find what's happening near you, or use the search bar to explore.
                    </p>
                </CardContent>
            </Card>

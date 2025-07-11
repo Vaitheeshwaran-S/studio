@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from 'react';
@@ -12,6 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from '@/component
 import { handleSmartSearch } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import type { SearchResultItem } from '@/lib/types';
+import type { SmartSearchInput } from '@/ai/flows/smart-search';
 
 const searchSchema = z.object({
   keywords: z.string().min(3, { message: 'Please enter at least 3 characters.' }),
@@ -21,9 +23,10 @@ type SmartSearchProps = {
   onResults: (results: SearchResultItem[]) => void;
   isSearching: boolean;
   setIsSearching: (isSearching: boolean) => void;
+  userLocation: { lat: number; lng: number } | null;
 };
 
-export default function SmartSearch({ onResults, isSearching, setIsSearching }: SmartSearchProps) {
+export default function SmartSearch({ onResults, isSearching, setIsSearching, userLocation }: SmartSearchProps) {
   const { toast } = useToast();
   const form = useForm<z.infer<typeof searchSchema>>({
     resolver: zodResolver(searchSchema),
@@ -34,7 +37,11 @@ export default function SmartSearch({ onResults, isSearching, setIsSearching }: 
 
   async function onSubmit(values: z.infer<typeof searchSchema>) {
     setIsSearching(true);
-    const result = await handleSmartSearch({ keywords: values.keywords });
+    const searchInput: SmartSearchInput = { 
+        keywords: values.keywords,
+        userLocation: userLocation ? `${userLocation.lat},${userLocation.lng}` : undefined,
+    };
+    const result = await handleSmartSearch(searchInput);
     setIsSearching(false);
 
     if (result.success && result.data) {
