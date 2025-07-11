@@ -22,7 +22,8 @@ export default function Home() {
   const [userLocation, setUserLocation] = React.useState<{ lat: number; lng: number } | null>(null);
 
   React.useEffect(() => {
-    if (navigator.geolocation) {
+    // Only run on client
+    if (typeof window !== 'undefined' && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           setUserLocation({
