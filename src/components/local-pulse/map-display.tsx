@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet.markercluster';
 import type { SearchResultItem } from '@/lib/types';
@@ -53,44 +52,10 @@ const createIcon = (type: 'event' | 'business', isHovered: boolean) => {
     });
 };
 
-const MapUpdater = ({ markers, hoveredItemId, setHoveredItemId }: { markers: MarkerData[], hoveredItemId: string | null, setHoveredItemId: (id: string | null) => void; }) => {
-    const map = useMap();
-    const markerClusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
-
-    useEffect(() => {
-        if (!markerClusterGroupRef.current) {
-            markerClusterGroupRef.current = L.markerClusterGroup();
-            map.addLayer(markerClusterGroupRef.current);
-        }
-
-        const clusterGroup = markerClusterGroupRef.current;
-        clusterGroup.clearLayers();
-
-        const allMarkers: L.Marker[] = [];
-
-        markers.forEach(marker => {
-            const leafletMarker = L.marker([marker.lat, marker.lng], { 
-                icon: createIcon(marker.type, hoveredItemId === marker.id) 
-            });
-            leafletMarker.bindPopup(`<b>${marker.name}</b>`);
-            leafletMarker.on('mouseover', () => setHoveredItemId(marker.id));
-            leafletMarker.on('mouseout', () => setHoveredItemId(null));
-
-            clusterGroup.addLayer(leafletMarker);
-            allMarkers.push(leafletMarker);
-        });
-
-        if (allMarkers.length > 0) {
-            const group = new L.FeatureGroup(allMarkers);
-            map.fitBounds(group.getBounds().pad(0.5));
-        }
-
-    }, [markers, map, hoveredItemId, setHoveredItemId]);
-
-    return null;
-}
-
 export default function MapDisplay({ results, hoveredItemId, setHoveredItemId, showWelcome, setShowWelcome, userLocation }: MapDisplayProps) {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const markerClusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
   const [markers, setMarkers] = useState<MarkerData[]>([]);
 
   const initialCenter = useMemo((): L.LatLngTuple => {
@@ -121,21 +86,58 @@ export default function MapDisplay({ results, hoveredItemId, setHoveredItemId, s
     }
   }, [results]);
 
+  useEffect(() => {
+    if (mapRef.current && !mapInstanceRef.current) {
+      mapInstanceRef.current = L.map(mapRef.current, {
+        center: initialCenter,
+        zoom: initialZoom,
+        scrollWheelZoom: true,
+      });
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(mapInstanceRef.current);
+
+      markerClusterGroupRef.current = L.markerClusterGroup();
+      mapInstanceRef.current.addLayer(markerClusterGroupRef.current);
+    }
+  }, [initialCenter, initialZoom]);
+  
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const clusterGroup = markerClusterGroupRef.current;
+    if (!map || !clusterGroup) return;
+
+    clusterGroup.clearLayers();
+    
+    const allMarkers: L.Marker[] = [];
+
+    markers.forEach(marker => {
+        const leafletMarker = L.marker([marker.lat, marker.lng], { 
+            icon: createIcon(marker.type, hoveredItemId === marker.id) 
+        });
+        leafletMarker.bindPopup(`<b>${marker.name}</b>`);
+        leafletMarker.on('mouseover', () => setHoveredItemId(marker.id));
+        leafletMarker.on('mouseout', () => setHoveredItemId(null));
+
+        clusterGroup.addLayer(leafletMarker);
+        allMarkers.push(leafletMarker);
+    });
+
+    if (allMarkers.length > 0 && results.length > 0) {
+        const group = new L.FeatureGroup(allMarkers);
+        map.fitBounds(group.getBounds().pad(0.5), { animate: true });
+    } else if (results.length === 0) {
+        map.setView(initialCenter, initialZoom, {animate: true});
+    }
+
+  }, [markers, hoveredItemId, setHoveredItemId, initialCenter, initialZoom, results.length]);
+
+
   return (
     <div className="relative w-full h-full">
-        <MapContainer 
-            center={initialCenter} 
-            zoom={initialZoom} 
-            className="w-full h-full z-0"
-            scrollWheelZoom={true}
-        >
-            <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            <MapUpdater markers={markers} hoveredItemId={hoveredItemId} setHoveredItemId={setHoveredItemId} />
-      </MapContainer>
-      {showWelcome && (
+        <div ref={mapRef} className="w-full h-full z-0" />
+        {showWelcome && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10 p-4">
           <Card className="max-w-sm text-center relative shadow-2xl">
             <Button
