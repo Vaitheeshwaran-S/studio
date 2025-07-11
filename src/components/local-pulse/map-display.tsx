@@ -2,17 +2,12 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, useMap, Popup, Marker } from 'react-leaflet';
+import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import type { SearchResultItem } from '@/lib/types';
 import L from 'leaflet';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Flame, X, Building, CalendarDays } from 'lucide-react';
-
-// Import MarkerCluster styles
-import 'leaflet/dist/leaflet.css';
-import 'leaflet.markercluster/dist/MarkerCluster.css';
-import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 
 // Import MarkerCluster script
 import 'leaflet.markercluster';
