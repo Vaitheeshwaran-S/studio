@@ -8,6 +8,7 @@ import SmartSearch from '@/components/local-pulse/smart-search';
 import ResultsList from '@/components/local-pulse/results-list';
 import type { SearchResultItem } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { APIProvider } from '@vis.gl/react-google-maps';
 
 const MapDisplay = dynamic(() => import('@/components/local-pulse/map-display'), {
   ssr: false,
@@ -52,29 +53,31 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
-      <main className="flex-1 container mx-auto p-4 md:p-6 flex flex-col gap-6">
-        <SmartSearch
-          onResults={handleResults}
-          isSearching={isSearching}
-          setIsSearching={setIsSearching}
-          userLocation={userLocation}
-        />
-        <div className="flex-grow grid md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 min-h-[400px] md:min-h-0 rounded-lg overflow-hidden shadow-lg relative">
-            <MapDisplay 
-              results={results} 
-              hoveredItemId={hoveredItemId} 
-              setHoveredItemId={setHoveredItemId}
-              showWelcome={showWelcome}
-              setShowWelcome={setShowWelcome}
-              userLocation={userLocation}
-            />
+      <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!} libraries={['marker']}>
+        <main className="flex-1 container mx-auto p-4 md:p-6 flex flex-col gap-6">
+          <SmartSearch
+            onResults={handleResults}
+            isSearching={isSearching}
+            setIsSearching={setIsSearching}
+            userLocation={userLocation}
+          />
+          <div className="flex-grow grid md:grid-cols-3 gap-6">
+            <div className="md:col-span-2 min-h-[400px] md:min-h-0 rounded-lg overflow-hidden shadow-lg relative">
+              <MapDisplay
+                results={results}
+                hoveredItemId={hoveredItemId}
+                setHoveredItemId={setHoveredItemId}
+                showWelcome={showWelcome}
+                setShowWelcome={setShowWelcome}
+                userLocation={userLocation}
+              />
+            </div>
+            <div className="md:col-span-1 flex flex-col">
+                <ResultsList results={results} isLoading={isSearching} hoveredItemId={hoveredItemId} setHoveredItemId={setHoveredItemId} />
+            </div>
           </div>
-          <div className="md:col-span-1 flex flex-col">
-              <ResultsList results={results} isLoading={isSearching} hoveredItemId={hoveredItemId} setHoveredItemId={setHoveredItemId} />
-          </div>
-        </div>
-      </main>
+        </main>
+      </APIProvider>
       <footer className="text-center p-4 text-muted-foreground text-sm">
         <p>Powered by Vaitheeshwaran S</p>
       </footer>
