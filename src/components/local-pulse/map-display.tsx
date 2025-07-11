@@ -1,8 +1,10 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { Map, AdvancedMarker } from '@vis.gl/react-google-maps';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet.markercluster';
 import type { SearchResultItem } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,37 +36,72 @@ const geocodeLocation = (locationName: string): Promise<{ lat: number; lng: numb
 
 type MarkerData = { id: string; type: 'event' | 'business'; name: string; lat: number; lng: number };
 
-const MarkerIcon = ({ type, isHovered }: { type: 'event' | 'business'; isHovered: boolean }) => {
-  const Icon = type === 'event' ? CalendarDays : Building;
-  const bgColor = isHovered ? 'hsl(var(--accent))' : 'hsl(var(--primary))';
-  const color = isHovered ? 'hsl(var(--accent-foreground))' : 'hsl(var(--primary-foreground))';
-
-  return (
-    <div
-      className="p-2 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg"
-      style={{ backgroundColor: bgColor, color: color }}
-      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'hsl(var(--accent))')}
-      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = bgColor)}
-    >
-      <Icon className="w-5 h-5" />
-    </div>
-  );
+const createIcon = (type: 'event' | 'business', isHovered: boolean) => {
+    const iconHtml = `
+      <div 
+        class="p-2 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg" 
+        style="background-color: hsl(var(--${isHovered ? 'accent' : 'primary'})); color: hsl(var(--${isHovered ? 'accent-foreground' : 'primary-foreground'}));">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          ${type === 'event' ? '<rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/>' : '<rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/>'}
+        </svg>
+      </div>
+    `;
+    return L.divIcon({
+        html: iconHtml,
+        className: 'bg-transparent border-none',
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
+    });
 };
 
+
+const MapUpdater = ({ center, zoom }: { center: L.LatLngTuple, zoom: number }) => {
+    const map = useMap();
+    useEffect(() => {
+        map.setView(center, zoom);
+    }, [center, zoom, map]);
+    return null;
+}
+
+const MarkerCluster = ({ markers, hoveredItemId, setHoveredItemId }: { markers: MarkerData[], hoveredItemId: string | null, setHoveredItemId: (id: string | null) => void; }) => {
+    const map = useMap();
+
+    useEffect(() => {
+        const markerClusterGroup = L.markerClusterGroup();
+        markers.forEach(marker => {
+            const leafletMarker = L.marker([marker.lat, marker.lng], { 
+                icon: createIcon(marker.type, hoveredItemId === marker.id) 
+            });
+            leafletMarker.bindPopup(`<b>${marker.name}</b>`);
+            leafletMarker.on('mouseover', () => setHoveredItemId(marker.id));
+            leafletMarker.on('mouseout', () => setHoveredItemId(null));
+
+            markerClusterGroup.addLayer(leafletMarker);
+        });
+
+        map.addLayer(markerClusterGroup);
+
+        return () => {
+            map.removeLayer(markerClusterGroup);
+        };
+    }, [markers, map, hoveredItemId, setHoveredItemId]);
+
+    return null;
+};
 
 export default function MapDisplay({ results, hoveredItemId, setHoveredItemId, showWelcome, setShowWelcome, userLocation }: MapDisplayProps) {
   const [markers, setMarkers] = useState<MarkerData[]>([]);
 
-  const mapCenter = useMemo(() => {
+  const mapCenter = useMemo((): L.LatLngTuple => {
     if (markers.length > 0) {
         const avgLat = markers.reduce((sum, m) => sum + m.lat, 0) / markers.length;
         const avgLng = markers.reduce((sum, m) => sum + m.lng, 0) / markers.length;
-        return { lat: avgLat, lng: avgLng };
+        return [avgLat, avgLng];
     }
     if (userLocation) {
-      return { lat: userLocation.lat, lng: userLocation.lng };
+      return [userLocation.lat, userLocation.lng];
     }
-    return { lat: 34.052235, lng: -118.243683 };
+    return [34.052235, -118.243683]; // Default to Los Angeles
   }, [userLocation, markers]);
 
   const mapZoom = useMemo(() => {
@@ -90,29 +127,19 @@ export default function MapDisplay({ results, hoveredItemId, setHoveredItemId, s
 
   return (
     <div className="relative w-full h-full">
-        <Map
-            mapId={'local-pulse-map'}
-            style={{ width: '100%', height: '100%' }}
-            center={mapCenter}
-            zoom={mapZoom}
-            gestureHandling={'greedy'}
-            disableDefaultUI={true}
+        <MapContainer 
+            center={mapCenter} 
+            zoom={mapZoom} 
+            className="w-full h-full z-0"
+            scrollWheelZoom={true}
         >
-            {markers.map(marker => (
-                <AdvancedMarker
-                    key={marker.id}
-                    position={marker}
-                    title={marker.name}
-                >
-                    <div
-                        onMouseEnter={() => setHoveredItemId(marker.id)}
-                        onMouseLeave={() => setHoveredItemId(null)}
-                    >
-                        <MarkerIcon type={marker.type} isHovered={hoveredItemId === marker.id} />
-                    </div>
-                </AdvancedMarker>
-            ))}
-      </Map>
+            <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            <MapUpdater center={mapCenter} zoom={mapZoom} />
+            <MarkerCluster markers={markers} hoveredItemId={hoveredItemId} setHoveredItemId={setHoveredItemId} />
+      </MapContainer>
       {showWelcome && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10 p-4">
           <Card className="max-w-sm text-center relative shadow-2xl">
