@@ -2,28 +2,20 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, useMap, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, useMap, Popup, Marker } from 'react-leaflet';
 import type { SearchResultItem } from '@/lib/types';
 import L from 'leaflet';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Flame, X, Building, CalendarDays } from 'lucide-react';
+
+// Import MarkerCluster styles
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 
-// Using a dynamic import for MarkerClusterGroup to avoid SSR issues
-const MarkerClusterGroup = React.lazy(() => import('react-leaflet-cluster'));
-
-const MarkerIcon = ({ type, isHovered }: { type: 'event' | 'business', isHovered: boolean }) => {
-  const Icon = type === 'event' ? CalendarDays : Building;
-  return (
-    <div className={`p-2 rounded-full flex items-center justify-center transition-all duration-200 ${isHovered ? 'bg-accent' : 'bg-primary'} text-primary-foreground shadow-lg`}>
-      <Icon className="w-5 h-5" />
-    </div>
-  );
-};
-
+// Import MarkerCluster script
+import 'leaflet.markercluster';
 
 interface MapDisplayProps {
   results: SearchResultItem[];
@@ -36,7 +28,6 @@ interface MapDisplayProps {
 
 const geocodeLocation = (locationName: string): Promise<{ lat: number; lng: number }> => {
   return new Promise(resolve => {
-    // Simple pseudo-random geocoding for demonstration
     let hash = 0;
     for (let i = 0; i < locationName.length; i++) {
       hash = locationName.charCodeAt(i) + ((hash << 5) - hash);
@@ -61,17 +52,35 @@ const MapUpdater = ({ center, zoom }: { center: [number, number], zoom: number }
   return null;
 };
 
-const createClusterIcon = (cluster: any) => {
+// Custom icon for individual markers
+const createMarkerIcon = (type: 'event' | 'business', isHovered: boolean) => {
+    const iconComponent = type === 'event' ? `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days w-5 h-5"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>` : `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-building w-5 h-5"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>`;
+    const bgColor = isHovered ? 'hsl(var(--accent))' : 'hsl(var(--primary))';
+    const iconHtml = `<div class="p-2 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg" style="background-color: ${bgColor}; color: hsl(var(--primary-foreground));">${iconComponent}</div>`;
+
     return L.divIcon({
-        html: `<div class="p-2 rounded-full flex items-center justify-center bg-primary text-primary-foreground font-bold text-sm" style="width: 40px; height: 40px;">${cluster.getChildCount()}</div>`,
+        html: iconHtml,
         className: 'bg-transparent border-0',
-        iconSize: [40, 40]
+        iconSize: L.point(40, 40),
+        iconAnchor: L.point(20, 40),
+        popupAnchor: L.point(0, -40)
     });
-};
+}
+
 
 const MapMarkers = ({ results, hoveredItemId, setHoveredItemId }: { results: SearchResultItem[], hoveredItemId: string | null, setHoveredItemId: (id: string | null) => void }) => {
     const [markers, setMarkers] = useState<MarkerData[]>([]);
-
+    const map = useMap();
+    const markerClusterGroup = useMemo(() => L.markerClusterGroup({
+        iconCreateFunction: (cluster: any) => {
+            return L.divIcon({
+                html: `<div class="p-2 rounded-full flex items-center justify-center bg-primary text-primary-foreground font-bold text-sm" style="width: 40px; height: 40px;">${cluster.getChildCount()}</div>`,
+                className: 'bg-transparent border-0',
+                iconSize: [40, 40]
+            });
+        }
+    }), []);
+    
     useEffect(() => {
         const processResults = async () => {
             const newMarkers = await Promise.all(
@@ -88,46 +97,30 @@ const MapMarkers = ({ results, hoveredItemId, setHoveredItemId }: { results: Sea
             setMarkers([]);
         }
     }, [results]);
-    
-    // Custom icon for individual markers
-    const createMarkerIcon = (type: 'event' | 'business', isHovered: boolean) => {
-        const iconComponent = type === 'event' ? `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days w-5 h-5"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>` : `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-building w-5 h-5"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>`;
-        const bgColor = isHovered ? 'hsl(var(--accent))' : 'hsl(var(--primary))';
-        const iconHtml = `<div class="p-2 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg" style="background-color: ${bgColor}; color: hsl(var(--primary-foreground));">${iconComponent}</div>`;
 
-        return L.divIcon({
-            html: iconHtml,
-            className: 'bg-transparent border-0',
-            iconSize: L.point(40, 40),
-            iconAnchor: L.point(20, 40),
-            popupAnchor: L.point(0, -40)
-        });
-    }
+    useEffect(() => {
+        markerClusterGroup.clearLayers();
+        if (markers.length > 0) {
+            markers.forEach(markerInfo => {
+                const marker = L.marker([markerInfo.lat, markerInfo.lng], {
+                    icon: createMarkerIcon(markerInfo.type, hoveredItemId === markerInfo.id)
+                });
+                marker.bindPopup(`<div class="font-bold">${markerInfo.name}</div><div class="text-sm capitalize">${markerInfo.type}</div>`);
+                marker.on('mouseover', () => setHoveredItemId(markerInfo.id));
+                marker.on('mouseout', () => setHoveredItemId(null));
+                markerClusterGroup.addLayer(marker);
+            });
+            map.addLayer(markerClusterGroup);
+        }
 
-    if(markers.length === 0) return null;
+        return () => {
+             if (map.hasLayer(markerClusterGroup)) {
+                map.removeLayer(markerClusterGroup);
+            }
+        };
+    }, [markers, hoveredItemId, map, markerClusterGroup, setHoveredItemId]);
 
-    return (
-        <React.Suspense fallback={null}>
-            <MarkerClusterGroup iconCreateFunction={createClusterIcon}>
-                {markers.map((marker) => (
-                    <L.Marker
-                        key={marker.id}
-                        position={[marker.lat, marker.lng]}
-                        icon={createMarkerIcon(marker.type, hoveredItemId === marker.id)}
-                        eventHandlers={{
-                            mouseover: () => setHoveredItemId(marker.id),
-                            mouseout: () => setHoveredItemId(null),
-                        }}
-                    >
-                        <Popup>
-                            <div className="font-bold">{marker.name}</div>
-                            <div className="text-sm capitalize">{marker.type}</div>
-                        </Popup>
-                    </L.Marker>
-                ))}
-            </MarkerClusterGroup>
-        </React.Suspense>
-    );
+    return null;
 };
 
 export default function MapDisplay({ results, hoveredItemId, setHoveredItemId, showWelcome, setShowWelcome, userLocation }: MapDisplayProps) {
