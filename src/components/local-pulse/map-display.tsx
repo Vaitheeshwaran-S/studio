@@ -3,13 +3,16 @@
 import React, { useState, useEffect } from 'react';
 import { Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
 import { Card, CardContent } from '@/components/ui/card';
-import { Flame, Building, CalendarDays } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Flame, Building, CalendarDays, X } from 'lucide-react';
 import type { SearchResultItem } from '@/lib/types';
 
 interface MapDisplayProps {
   results: SearchResultItem[];
   hoveredItemId: string | null;
   setHoveredItemId: (id: string | null) => void;
+  showWelcome: boolean;
+  setShowWelcome: (show: boolean) => void;
 }
 
 // Simple geocoding simulation - in a real app, use the Geocoding API
@@ -41,7 +44,7 @@ const MarkerIcon = ({ type, isHovered }: { type: 'event' | 'business', isHovered
 };
 
 
-export default function MapDisplay({ results, hoveredItemId, setHoveredItemId }: MapDisplayProps) {
+export default function MapDisplay({ results, hoveredItemId, setHoveredItemId, showWelcome, setShowWelcome }: MapDisplayProps) {
   const [markers, setMarkers] = useState<({ id: string; type: 'event' | 'business', name: string } & { lat: number; lng: number })[]>([]);
 
   useEffect(() => {
@@ -83,9 +86,18 @@ export default function MapDisplay({ results, hoveredItemId, setHoveredItemId }:
           }
         />
       ))}
-       {results.length === 0 && (
+       {showWelcome && (
          <div className="absolute inset-0 flex items-center justify-center bg-background/80">
-            <Card className="max-w-sm text-center">
+            <Card className="max-w-sm text-center relative">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="absolute top-2 right-2 h-6 w-6"
+                  onClick={() => setShowWelcome(false)}
+                >
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
+                </Button>
                 <CardContent className="p-6">
                     <Flame className="mx-auto h-12 w-12 text-primary" />
                     <h3 className="mt-4 text-lg font-medium">Welcome to LocalPulse</h3>

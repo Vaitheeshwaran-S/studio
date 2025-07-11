@@ -14,11 +14,15 @@ export default function Home() {
   const [results, setResults] = React.useState<SearchResultItem[]>([]);
   const [isSearching, setIsSearching] = React.useState(false);
   const [hoveredItemId, setHoveredItemId] = React.useState<string | null>(null);
+  const [showWelcome, setShowWelcome] = React.useState(true);
 
   const handleResults = (newResults: SearchResultItem[]) => {
     // Add a unique ID to each result for keying and hover effects
     const resultsWithIds = newResults.map((r, index) => ({ ...r, id: `${r.name}-${index}` }));
     setResults(resultsWithIds);
+    if (newResults.length > 0) {
+      setShowWelcome(false);
+    }
   };
 
   return (
@@ -33,7 +37,13 @@ export default function Home() {
           />
           <div className="flex-grow grid md:grid-cols-3 gap-6">
             <div className="md:col-span-2 min-h-[400px] md:min-h-0 rounded-lg overflow-hidden shadow-lg">
-              <MapDisplay results={results} hoveredItemId={hoveredItemId} setHoveredItemId={setHoveredItemId} />
+              <MapDisplay 
+                results={results} 
+                hoveredItemId={hoveredItemId} 
+                setHoveredItemId={setHoveredItemId}
+                showWelcome={showWelcome}
+                setShowWelcome={setShowWelcome}
+              />
             </div>
             <div className="md:col-span-1 flex flex-col">
                <ResultsList results={results} isLoading={isSearching} hoveredItemId={hoveredItemId} setHoveredItemId={setHoveredItemId} />
@@ -41,7 +51,7 @@ export default function Home() {
           </div>
         </main>
         <footer className="text-center p-4 text-muted-foreground text-sm">
-          <p>Powered by LocalPulse</p>
+          <p>Powered by Vaitheeshwaran S</p>
         </footer>
       </div>
     </APIProvider>
