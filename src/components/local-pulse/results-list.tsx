@@ -1,8 +1,9 @@
+
 "use client";
 
 import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building, CalendarDays, MapPin, ArrowDownUp, Filter } from 'lucide-react';
+import { Building, CalendarDays, MapPin, ArrowDownUp, Filter, ShoppingBag, ShoppingCart } from 'lucide-react';
 import type { SearchResultItem } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -15,6 +16,22 @@ type ResultsListProps = {
   hoveredItemId: string | null;
   setHoveredItemId: (id: string | null) => void;
 };
+
+const TypeIcon = ({ type }: { type: SearchResultItem['type'] }) => {
+  switch (type) {
+    case 'event':
+      return <CalendarDays className="w-5 h-5 text-accent" />;
+    case 'business':
+      return <Building className="w-5 h-5 text-accent" />;
+    case 'shop':
+      return <ShoppingBag className="w-5 h-5 text-accent" />;
+    case 'mall':
+      return <ShoppingCart className="w-5 h-5 text-accent" />;
+    default:
+      return <Building className="w-5 h-5 text-accent" />;
+  }
+};
+
 
 export default function ResultsList({ results, isLoading, hoveredItemId, setHoveredItemId }: ResultsListProps) {
   const [sortOrder, setSortOrder] = React.useState('name-asc');
@@ -74,6 +91,8 @@ export default function ResultsList({ results, isLoading, hoveredItemId, setHove
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="event">Events</SelectItem>
                 <SelectItem value="business">Businesses</SelectItem>
+                <SelectItem value="shop">Shops</SelectItem>
+                <SelectItem value="mall">Malls</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -95,11 +114,7 @@ export default function ResultsList({ results, isLoading, hoveredItemId, setHove
                 >
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
-                      {item.type === 'event' ? (
-                        <CalendarDays className="w-5 h-5 text-accent" />
-                      ) : (
-                        <Building className="w-5 h-5 text-accent" />
-                      )}
+                      <TypeIcon type={item.type} />
                       {item.name}
                     </CardTitle>
                   </CardHeader>
@@ -115,8 +130,8 @@ export default function ResultsList({ results, isLoading, hoveredItemId, setHove
             </div>
           ) : (
             <div className="text-center text-muted-foreground py-16">
-              <p>No results yet.</p>
-              <p className="text-sm">Use the search to find local gems!</p>
+              <p>No results for this filter.</p>
+              <p className="text-sm">Try selecting a different city or type.</p>
             </div>
           )}
         </div>
