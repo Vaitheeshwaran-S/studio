@@ -19,7 +19,6 @@ interface MapDisplayProps {
   userLocation: { lat: number; lng: number } | null;
 }
 
-// A simple (and not very unique) hashing function to create positions from location names
 const geocodeLocation = (locationName: string): Promise<{ lat: number; lng: number }> => {
   return new Promise(resolve => {
     let hash = 0;
@@ -54,20 +53,23 @@ const createIcon = (type: 'event' | 'business', isHovered: boolean) => {
     });
 };
 
-
-const MapUpdater = ({ center, zoom }: { center: L.LatLngTuple, zoom: number }) => {
+const MapUpdater = ({ markers, center, zoom, hoveredItemId, setHoveredItemId }: { markers: MarkerData[], center: L.LatLngTuple, zoom: number, hoveredItemId: string | null, setHoveredItemId: (id: string | null) => void; }) => {
     const map = useMap();
+    const markerClusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
+
     useEffect(() => {
         map.setView(center, zoom);
     }, [center, zoom, map]);
-    return null;
-}
-
-const MarkerCluster = ({ markers, hoveredItemId, setHoveredItemId }: { markers: MarkerData[], hoveredItemId: string | null, setHoveredItemId: (id: string | null) => void; }) => {
-    const map = useMap();
 
     useEffect(() => {
-        const markerClusterGroup = L.markerClusterGroup();
+        if (!markerClusterGroupRef.current) {
+            markerClusterGroupRef.current = L.markerClusterGroup();
+            map.addLayer(markerClusterGroupRef.current);
+        }
+
+        const clusterGroup = markerClusterGroupRef.current;
+        clusterGroup.clearLayers();
+
         markers.forEach(marker => {
             const leafletMarker = L.marker([marker.lat, marker.lng], { 
                 icon: createIcon(marker.type, hoveredItemId === marker.id) 
@@ -76,18 +78,13 @@ const MarkerCluster = ({ markers, hoveredItemId, setHoveredItemId }: { markers: 
             leafletMarker.on('mouseover', () => setHoveredItemId(marker.id));
             leafletMarker.on('mouseout', () => setHoveredItemId(null));
 
-            markerClusterGroup.addLayer(leafletMarker);
+            clusterGroup.addLayer(leafletMarker);
         });
 
-        map.addLayer(markerClusterGroup);
-
-        return () => {
-            map.removeLayer(markerClusterGroup);
-        };
     }, [markers, map, hoveredItemId, setHoveredItemId]);
 
     return null;
-};
+}
 
 export default function MapDisplay({ results, hoveredItemId, setHoveredItemId, showWelcome, setShowWelcome, userLocation }: MapDisplayProps) {
   const [markers, setMarkers] = useState<MarkerData[]>([]);
@@ -137,8 +134,7 @@ export default function MapDisplay({ results, hoveredItemId, setHoveredItemId, s
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
-            <MapUpdater center={mapCenter} zoom={mapZoom} />
-            <MarkerCluster markers={markers} hoveredItemId={hoveredItemId} setHoveredItemId={setHoveredItemId} />
+            <MapUpdater markers={markers} center={mapCenter} zoom={mapZoom} hoveredItemId={hoveredItemId} setHoveredItemId={setHoveredItemId} />
       </MapContainer>
       {showWelcome && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10 p-4">
