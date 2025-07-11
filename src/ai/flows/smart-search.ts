@@ -58,7 +58,7 @@ const smartSearchFlow = ai.defineFlow(
   async input => {
     // For demonstration, we'll generate some dummy data if no real data source is available.
     // In a real app, you would have a tool here to query a database or external API.
-    const {output} = await prompt(input);
-    return output!;
+    const response = await ai.generate({ prompt, input });
+    return response.output!;
   }
 );
