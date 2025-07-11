@@ -46,10 +46,6 @@ export default function SmartSearch({ onResults, isSearching, setIsSearching, us
 
     if (result.success && result.data) {
       onResults(result.data);
-       toast({
-        title: "Search Complete!",
-        description: `Found ${result.data.length} results for "${values.keywords}".`,
-      });
     } else {
       toast({
         variant: 'destructive',

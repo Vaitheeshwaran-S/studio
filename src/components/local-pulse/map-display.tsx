@@ -2,13 +2,13 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet.markercluster';
 import type { SearchResultItem } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Flame, X, Building, CalendarDays } from 'lucide-react';
+import { Flame, X } from 'lucide-react';
 
 interface MapDisplayProps {
   results: SearchResultItem[];
@@ -53,13 +53,9 @@ const createIcon = (type: 'event' | 'business', isHovered: boolean) => {
     });
 };
 
-const MapUpdater = ({ markers, center, zoom, hoveredItemId, setHoveredItemId }: { markers: MarkerData[], center: L.LatLngTuple, zoom: number, hoveredItemId: string | null, setHoveredItemId: (id: string | null) => void; }) => {
+const MapUpdater = ({ markers, hoveredItemId, setHoveredItemId }: { markers: MarkerData[], hoveredItemId: string | null, setHoveredItemId: (id: string | null) => void; }) => {
     const map = useMap();
     const markerClusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
-
-    useEffect(() => {
-        map.setView(center, zoom);
-    }, [center, zoom, map]);
 
     useEffect(() => {
         if (!markerClusterGroupRef.current) {
@@ -70,6 +66,8 @@ const MapUpdater = ({ markers, center, zoom, hoveredItemId, setHoveredItemId }: 
         const clusterGroup = markerClusterGroupRef.current;
         clusterGroup.clearLayers();
 
+        const allMarkers: L.Marker[] = [];
+
         markers.forEach(marker => {
             const leafletMarker = L.marker([marker.lat, marker.lng], { 
                 icon: createIcon(marker.type, hoveredItemId === marker.id) 
@@ -79,7 +77,13 @@ const MapUpdater = ({ markers, center, zoom, hoveredItemId, setHoveredItemId }: 
             leafletMarker.on('mouseout', () => setHoveredItemId(null));
 
             clusterGroup.addLayer(leafletMarker);
+            allMarkers.push(leafletMarker);
         });
+
+        if (allMarkers.length > 0) {
+            const group = new L.FeatureGroup(allMarkers);
+            map.fitBounds(group.getBounds().pad(0.5));
+        }
 
     }, [markers, map, hoveredItemId, setHoveredItemId]);
 
@@ -89,21 +93,16 @@ const MapUpdater = ({ markers, center, zoom, hoveredItemId, setHoveredItemId }: 
 export default function MapDisplay({ results, hoveredItemId, setHoveredItemId, showWelcome, setShowWelcome, userLocation }: MapDisplayProps) {
   const [markers, setMarkers] = useState<MarkerData[]>([]);
 
-  const mapCenter = useMemo((): L.LatLngTuple => {
-    if (markers.length > 0) {
-        const avgLat = markers.reduce((sum, m) => sum + m.lat, 0) / markers.length;
-        const avgLng = markers.reduce((sum, m) => sum + m.lng, 0) / markers.length;
-        return [avgLat, avgLng];
-    }
+  const initialCenter = useMemo((): L.LatLngTuple => {
     if (userLocation) {
       return [userLocation.lat, userLocation.lng];
     }
     return [34.052235, -118.243683]; // Default to Los Angeles
-  }, [userLocation, markers]);
+  }, [userLocation]);
 
-  const mapZoom = useMemo(() => {
-    return userLocation || results.length > 0 ? 12 : 10;
-  }, [userLocation, results]);
+  const initialZoom = useMemo(() => {
+    return userLocation ? 12 : 10;
+  }, [userLocation]);
 
   useEffect(() => {
     const processResults = async () => {
@@ -125,8 +124,8 @@ export default function MapDisplay({ results, hoveredItemId, setHoveredItemId, s
   return (
     <div className="relative w-full h-full">
         <MapContainer 
-            center={mapCenter} 
-            zoom={mapZoom} 
+            center={initialCenter} 
+            zoom={initialZoom} 
             className="w-full h-full z-0"
             scrollWheelZoom={true}
         >
@@ -134,7 +133,7 @@ export default function MapDisplay({ results, hoveredItemId, setHoveredItemId, s
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
-            <MapUpdater markers={markers} center={mapCenter} zoom={mapZoom} hoveredItemId={hoveredItemId} setHoveredItemId={setHoveredItemId} />
+            <MapUpdater markers={markers} hoveredItemId={hoveredItemId} setHoveredItemId={setHoveredItemId} />
       </MapContainer>
       {showWelcome && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10 p-4">

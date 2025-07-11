@@ -30,9 +30,6 @@ export default function Home() {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           });
-          if (results.length === 0) {
-             // Keep welcome screen until first search
-          }
         },
         (error) => {
           console.error("Error getting user location:", error);
@@ -40,7 +37,7 @@ export default function Home() {
         }
       );
     }
-  }, [results.length]);
+  }, []);
 
   const handleResults = (newResults: SearchResultItem[]) => {
     // Add a unique ID to each result for keying and hover effects
