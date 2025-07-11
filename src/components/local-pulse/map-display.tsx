@@ -45,6 +45,7 @@ interface MapDisplayProps {
 
 const geocodeLocation = (locationName: string): Promise<{ lat: number; lng: number }> => {
   return new Promise(resolve => {
+    // Simple pseudo-random geocoding for demonstration
     let hash = 0;
     for (let i = 0; i < locationName.length; i++) {
       hash = locationName.charCodeAt(i) + ((hash << 5) - hash);
